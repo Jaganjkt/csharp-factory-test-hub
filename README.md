@@ -76,6 +76,8 @@ dotnet run
 ```
 
 Navigate to the URL shown in console output (typically `https://localhost:5001` or `http://localhost:5000`).
+<img width="1897" height="2028" alt="image" src="https://github.com/user-attachments/assets/baf6d854-ec63-466c-a974-1bab882e5771" />
+
 
 The SQLite database is created and seeded automatically on first launch with 30 devices, 10 test sessions, 5 production stations, and 5 fault records.
 
