@@ -77,8 +77,11 @@ dotnet run
 
 Navigate to the URL shown in console output (typically `https://localhost:5001` or `http://localhost:5000`).
 ## Output - Screens
-**Dashboard:-**
+**Dashboard (Light theme):-**
 <img width="1920" height="1524" alt="image" src="https://github.com/user-attachments/assets/bda5886a-3597-4742-81fb-9a00363c739c" />
+**Dashboard (Dark theme):-**
+<img width="1920" height="1524" alt="image" src="https://github.com/user-attachments/assets/432a2d82-33b6-4b60-a3ca-ce3298ae6fd7" />
+
 **Execute Test:-**
 <img width="1920" height="1204" alt="image" src="https://github.com/user-attachments/assets/c5dc2f49-e370-4e81-a301-08b2357ee0d4" />
 **Hardware Simulator:-**
