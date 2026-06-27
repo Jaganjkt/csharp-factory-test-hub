@@ -76,9 +76,19 @@ dotnet run
 ```
 
 Navigate to the URL shown in console output (typically `https://localhost:5001` or `http://localhost:5000`).
-## Output - Screen 
-<img width="1897" height="2028" alt="image" src="https://github.com/user-attachments/assets/baf6d854-ec63-466c-a974-1bab882e5771" />
-
+## Output - Screens
+**Dashboard:-**
+<img width="1920" height="1524" alt="image" src="https://github.com/user-attachments/assets/bda5886a-3597-4742-81fb-9a00363c739c" />
+**Execute Test:-**
+<img width="1920" height="1204" alt="image" src="https://github.com/user-attachments/assets/c5dc2f49-e370-4e81-a301-08b2357ee0d4" />
+**Hardware Simulator:-**
+<img width="1920" height="1091" alt="image" src="https://github.com/user-attachments/assets/88f5190a-6803-4ced-acdb-8ad5701afbdf" />
+**Monitoring:-**
+<img width="1920" height="1136" alt="image" src="https://github.com/user-attachments/assets/9215a46a-4061-493a-a08b-0250b8a17954" />
+**Falut Analysis:-**
+<img width="1920" height="1266" alt="image" src="https://github.com/user-attachments/assets/89d22b67-8cc8-4c58-83f4-a39eb8ba506f" />
+**Documentation:-**
+<img width="1920" height="1402" alt="image" src="https://github.com/user-attachments/assets/12a33086-733c-48ae-9ab5-76c555c1f34b" />
 
 The SQLite database is created and seeded automatically on first launch with 30 devices, 10 test sessions, 5 production stations, and 5 fault records.
 
