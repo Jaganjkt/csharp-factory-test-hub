@@ -76,6 +76,7 @@ dotnet run
 ```
 
 Navigate to the URL shown in console output (typically `https://localhost:5001` or `http://localhost:5000`).
+## Output - Screen 
 <img width="1897" height="2028" alt="image" src="https://github.com/user-attachments/assets/baf6d854-ec63-466c-a974-1bab882e5771" />
 
 
