@@ -1,0 +1,224 @@
+@page "/docs"
+@inject ITestSessionService SessionService
+@inject ISnackbar Snackbar
+
+<PageTitle>Documentation - Ericsson Test Hub</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight: 600;">Documentation & Reports</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-4" Elevation="2" Style="border-radius: 12px;">
+            <MudText Typo="Typo.h6" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Summarize" Class="mr-2" /> Generate Report
+            </MudText>
+
+            <MudSelect @bind-Value="_selectedSessionId" Label="Select Test Session" Variant="Variant.Outlined" Class="mb-3">
+                @foreach (var session in _sessions)
+                {
+                    <MudSelectItem Value="@session.Id">
+                        #@session.Id — @session.Device?.SerialNumber (@session.Status)
+                    </MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudStack Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Visibility" OnClick="GenerateReport">
+                    View Report
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.PictureAsPdf" OnClick="ExportPdf">
+                    Export PDF
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mt-4" Elevation="2" Style="border-radius: 12px;">
+            <MudText Typo="Typo.h6" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-2" /> System Info
+            </MudText>
+            <MudSimpleTable Dense="true" Striped="true">
+                <tbody>
+                    <tr><td><b>Application</b></td><td>Ericsson Test Hub</td></tr>
+                    <tr><td><b>Version</b></td><td>1.0.0-demo</td></tr>
+                    <tr><td><b>Framework</b></td><td>.NET 10 / Blazor Server</td></tr>
+                    <tr><td><b>UI Library</b></td><td>MudBlazor 8.x</td></tr>
+                    <tr><td><b>Database</b></td><td>SQLite (demo)</td></tr>
+                    <tr><td><b>Real-time</b></td><td>SignalR</td></tr>
+                    <tr><td><b>Architecture</b></td><td>Service Layer + DI</td></tr>
+                </tbody>
+            </MudSimpleTable>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="8">
+        @if (_report != null)
+        {
+            <MudPaper Class="pa-6" Elevation="2" Style="border-radius: 12px;">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+                    <div>
+                        <MudText Typo="Typo.h5" Style="font-weight: 700;">Test Execution Report</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Generated: @DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+                        </MudText>
+                    </div>
+                    <MudImage Src="images/logo.png" Alt="Ericsson" Height="28" ObjectFit="ObjectFit.Contain"
+                              Style="filter: brightness(0) saturate(100%);" />
+                </MudStack>
+
+                <MudDivider Class="mb-4" />
+
+                <MudText Typo="Typo.h6" Class="mb-2">Session Summary</MudText>
+                <MudSimpleTable Dense="true" Bordered="true" Class="mb-4">
+                    <tbody>
+                        <tr><td style="width: 200px;"><b>Session ID</b></td><td>#@_report.Id</td></tr>
+                        <tr><td><b>Device Serial</b></td><td>@_report.Device?.SerialNumber</td></tr>
+                        <tr><td><b>Product Type</b></td><td>@_report.Device?.ProductType</td></tr>
+                        <tr><td><b>Firmware</b></td><td>@_report.Device?.FirmwareVersion</td></tr>
+                        <tr><td><b>Test Profile</b></td><td>@_report.TestProfile</td></tr>
+                        <tr><td><b>Station</b></td><td>@_report.Station?.Name (@_report.Station?.Location)</td></tr>
+                        <tr><td><b>Operator</b></td><td>@_report.Operator</td></tr>
+                        <tr><td><b>Start Time</b></td><td>@_report.StartTime.ToString("yyyy-MM-dd HH:mm:ss")</td></tr>
+                        <tr><td><b>End Time</b></td><td>@(_report.EndTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "In Progress")</td></tr>
+                        <tr>
+                            <td><b>Result</b></td>
+                            <td>
+                                <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(_report.Status)" Variant="Variant.Filled">
+                                    @_report.Status
+                                </MudChip>
+                            </td>
+                        </tr>
+                    </tbody>
+                </MudSimpleTable>
+
+                <MudText Typo="Typo.h6" Class="mb-2">Test Steps</MudText>
+                <MudTable Items="_report.Steps" Dense="true" Hover="true" Bordered="true" Class="mb-4">
+                    <HeaderContent>
+                        <MudTh>#</MudTh>
+                        <MudTh>Step Name</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Measured Value</MudTh>
+                        <MudTh>Duration</MudTh>
+                        <MudTh>Error</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.Order</MudTd>
+                        <MudTd>@context.Name</MudTd>
+                        <MudTd>
+                            <MudChip T="string" Size="Size.Small" Color="@GetStepColor(context.Status)" Variant="Variant.Filled">
+                                @context.Status
+                            </MudChip>
+                        </MudTd>
+                        <MudTd>
+                            @if (context.MeasuredValue.HasValue)
+                            {
+                                @($"{context.MeasuredValue.Value:F2} {context.Unit}")
+                            }
+                            else
+                            {
+                                <span>—</span>
+                            }
+                        </MudTd>
+                        <MudTd>
+                            @if (context.StartTime.HasValue && context.EndTime.HasValue)
+                            {
+                                @($"{(context.EndTime.Value - context.StartTime.Value).TotalSeconds:F1}s")
+                            }
+                            else
+                            {
+                                <span>—</span>
+                            }
+                        </MudTd>
+                        <MudTd>
+                            @if (!string.IsNullOrEmpty(context.ErrorMessage))
+                            {
+                                <MudText Color="Color.Error" Typo="Typo.body2">@context.ErrorMessage</MudText>
+                            }
+                            else
+                            {
+                                <span>—</span>
+                            }
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+
+                @if (_report.Logs.Any())
+                {
+                    <MudText Typo="Typo.h6" Class="mb-2">Execution Log</MudText>
+                    <div style="background: var(--mud-palette-background); border-radius: 8px; padding: 12px; max-height: 300px; overflow-y: auto;">
+                        @foreach (var log in _report.Logs)
+                        {
+                            <div class="log-entry @GetLogClass(log.Level)">
+                                @log.Timestamp.ToString("HH:mm:ss") [@log.Level] @log.Message
+                            </div>
+                        }
+                    </div>
+                }
+            </MudPaper>
+        }
+        else
+        {
+            <MudPaper Class="pa-8" Elevation="2" Style="border-radius: 12px;">
+                <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Typo="Typo.h6" Color="Color.Secondary">Select a test session to generate a report</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Reports include session summary, test step results, measured values, and execution logs.
+                    </MudText>
+                </MudStack>
+            </MudPaper>
+        }
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<TestSession> _sessions = new();
+    private int _selectedSessionId;
+    private TestSession? _report;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _sessions = await SessionService.GetAllSessionsAsync();
+        if (_sessions.Any())
+            _selectedSessionId = _sessions.First().Id;
+    }
+
+    private async Task GenerateReport()
+    {
+        _report = await SessionService.GetSessionByIdAsync(_selectedSessionId);
+        if (_report == null)
+            Snackbar.Add("Session not found", Severity.Error);
+    }
+
+    private void ExportPdf()
+    {
+        Snackbar.Add("PDF export is a placeholder — in production, use a library like QuestPDF or iTextSharp.", Severity.Info);
+    }
+
+    private static Color GetStatusColor(string status) => status switch
+    {
+        "Passed" => Color.Success,
+        "Failed" => Color.Error,
+        "Running" => Color.Info,
+        _ => Color.Default
+    };
+
+    private static Color GetStepColor(string status) => status switch
+    {
+        "Passed" => Color.Success,
+        "Failed" => Color.Error,
+        "Running" => Color.Info,
+        "Skipped" => Color.Default,
+        _ => Color.Default
+    };
+
+    private static string GetLogClass(string level) => level switch
+    {
+        "PASS" => "log-pass",
+        "FAIL" => "log-fail",
+        "WARN" => "log-warn",
+        "ERROR" => "log-error",
+        _ => "log-info"
+    };
+}

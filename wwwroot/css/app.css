@@ -1,0 +1,133 @@
+/* Ericsson Test Hub - Custom Styles */
+
+.app-bar {
+    backdrop-filter: blur(10px);
+}
+
+.logo-image {
+    filter: brightness(0) invert(1);
+}
+
+.app-title {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* Status indicators */
+.status-passed { color: #4caf50 !important; }
+.status-failed { color: #f44336 !important; }
+.status-running { color: #2196f3 !important; }
+.status-pending { color: #9e9e9e !important; }
+.status-idle { color: #ff9800 !important; }
+
+/* Dashboard stat cards */
+.stat-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-radius: 12px !important;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+}
+
+/* Log entries */
+.log-entry {
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-bottom: 2px;
+}
+
+.log-pass { background: rgba(76, 175, 80, 0.1); color: #4caf50; }
+.log-fail { background: rgba(244, 67, 54, 0.1); color: #f44336; }
+.log-info { background: rgba(33, 150, 243, 0.1); color: #2196f3; }
+.log-warn { background: rgba(255, 152, 0, 0.1); color: #ff9800; }
+.log-error { background: rgba(244, 67, 54, 0.1); color: #f44336; }
+
+/* Telemetry gauges */
+.telemetry-card {
+    border-left: 4px solid;
+    border-radius: 8px !important;
+}
+
+/* Progress steps */
+.step-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    transition: background 0.2s;
+}
+
+/* Chart containers */
+.chart-container {
+    min-height: 300px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .app-title {
+        font-size: 0.9rem !important;
+    }
+
+    .logo-image {
+        height: 24px !important;
+    }
+
+    .stat-card {
+        margin-bottom: 8px;
+    }
+
+    .mud-main-content {
+        padding: 8px !important;
+    }
+}
+
+@media (max-width: 960px) {
+    .chart-container {
+        min-height: 200px;
+    }
+}
+
+/* Severity badges */
+.severity-critical { background: #f44336 !important; color: white !important; }
+.severity-high { background: #ff5722 !important; color: white !important; }
+.severity-medium { background: #ff9800 !important; color: white !important; }
+.severity-low { background: #4caf50 !important; color: white !important; }
+
+/* Animation for running status */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.pulse-animation {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* Event log timeline */
+.event-item {
+    border-left: 3px solid;
+    padding-left: 12px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+}
+
+/* Scrollable containers */
+.scroll-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.scroll-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.scroll-container::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.4);
+    border-radius: 3px;
+}

@@ -1,0 +1,22 @@
+@inject NavigationManager Nav
+
+<MudNavMenu Bordered="true" Class="mt-2">
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard" IconColor="Color.Info">
+        Dashboard
+    </MudNavLink>
+    <MudNavLink Href="/tests" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PlayCircle" IconColor="Color.Success">
+        Execute Test
+    </MudNavLink>
+    <MudNavLink Href="/simulator" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Memory" IconColor="Color.Warning">
+        HW Simulator
+    </MudNavLink>
+    <MudNavLink Href="/monitor" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Monitor" IconColor="Color.Secondary">
+        Monitoring
+    </MudNavLink>
+    <MudNavLink Href="/analysis" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.BugReport" IconColor="Color.Error">
+        Fault Analysis
+    </MudNavLink>
+    <MudNavLink Href="/docs" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Description" IconColor="Color.Primary">
+        Documentation
+    </MudNavLink>
+</MudNavMenu>

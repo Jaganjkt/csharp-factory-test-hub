@@ -1,0 +1,247 @@
+@page "/simulator"
+@inject ITestDeviceService DeviceService
+@inject ISnackbar Snackbar
+@implements IDisposable
+
+<PageTitle>Hardware Simulator - Ericsson Test Hub</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight: 600;">Hardware Simulator</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-4" Elevation="2" Style="border-radius: 12px;">
+            <MudText Typo="Typo.h6" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Usb" Class="mr-2" /> Device Connection
+            </MudText>
+
+            <MudTextField @bind-Value="_serialNumber" Label="Device Serial" Variant="Variant.Outlined"
+                          Placeholder="ERC-2024001" Disabled="_isConnected" Class="mb-3" />
+
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.PowerSettingsNew"
+                           OnClick="Connect" Disabled="_isConnected || _isConnecting" FullWidth="true">
+                    @(_isConnecting ? "Connecting..." : "Connect")
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.PowerOff"
+                           OnClick="Disconnect" Disabled="!_isConnected">
+                    Disconnect
+                </MudButton>
+            </MudStack>
+
+            <MudDivider Class="my-4" />
+
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Connection Status</MudText>
+            <MudAlert Severity="@(_isConnected ? Severity.Success : Severity.Normal)"
+                      Variant="Variant.Outlined" Dense="true">
+                @(_isConnected ? $"Connected to {DeviceService.ConnectedDevice}" : "No device connected")
+            </MudAlert>
+
+            <MudDivider Class="my-4" />
+
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Run Test Step</MudText>
+            <MudSelect @bind-Value="_selectedStep" Label="Test Step" Variant="Variant.Outlined"
+                       Disabled="!_isConnected" Class="mb-3">
+                @foreach (var step in _stepNames)
+                {
+                    <MudSelectItem Value="@step">@step</MudSelectItem>
+                }
+            </MudSelect>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PlayArrow"
+                       OnClick="RunStep" Disabled="!_isConnected || _isRunningStep" FullWidth="true">
+                @(_isRunningStep ? "Running..." : "Execute Step")
+            </MudButton>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mt-4" Elevation="2" Style="border-radius: 12px;">
+            <MudText Typo="Typo.h6" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Code" Class="mr-2" /> Service Interface
+            </MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                <code>ITestDeviceService</code> Methods:
+            </MudText>
+            <MudList T="string" Dense="true">
+                <MudListItem Icon="@Icons.Material.Filled.Link" Text="ConnectAsync(serialNumber)" />
+                <MudListItem Icon="@Icons.Material.Filled.PlayArrow" Text="RunStepAsync(stepName)" />
+                <MudListItem Icon="@Icons.Material.Filled.Sensors" Text="ReadTelemetryAsync()" />
+                <MudListItem Icon="@Icons.Material.Filled.LinkOff" Text="DisconnectAsync()" />
+            </MudList>
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mt-2">
+                Implementation: <code>MockRadioDeviceService</code> — simulates random delays and failures.
+            </MudAlert>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="8">
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4 telemetry-card" Elevation="2" Style="border-left-color: #f44336; border-radius: 12px;">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Temperature</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight: 700;">
+                        @(_telemetry?.Temperature.ToString("F1") ?? "--") °C
+                    </MudText>
+                    <MudProgressLinear Color="@GetTempColor()" Value="@GetTempPercent()" Rounded="true" Size="Size.Small" Class="mt-2" />
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4 telemetry-card" Elevation="2" Style="border-left-color: #2196f3; border-radius: 12px;">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Signal Strength</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight: 700;">
+                        @(_telemetry?.SignalStrength.ToString("F1") ?? "--") dBm
+                    </MudText>
+                    <MudProgressLinear Color="Color.Info" Value="@GetSignalPercent()" Rounded="true" Size="Size.Small" Class="mt-2" />
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4 telemetry-card" Elevation="2" Style="border-left-color: #4caf50; border-radius: 12px;">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Voltage</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight: 700;">
+                        @(_telemetry?.Voltage.ToString("F2") ?? "--") V
+                    </MudText>
+                    <MudProgressLinear Color="Color.Success" Value="@GetVoltagePercent()" Rounded="true" Size="Size.Small" Class="mt-2" />
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        @if (_lastStepResult != null)
+        {
+            <MudPaper Class="pa-4 mt-4" Elevation="2" Style="border-radius: 12px;">
+                <MudText Typo="Typo.h6" Class="mb-3">
+                    <MudIcon Icon="@Icons.Material.Filled.Assessment" Class="mr-2" /> Last Step Result
+                </MudText>
+                <MudAlert Severity="@(_lastStepResult.Passed ? Severity.Success : Severity.Error)" Variant="Variant.Filled">
+                    <MudText><b>@_lastStepResult.StepName</b>: @_lastStepResult.Message</MudText>
+                    @if (_lastStepResult.MeasuredValue.HasValue)
+                    {
+                        <MudText Typo="Typo.body2">Measured: @_lastStepResult.MeasuredValue.Value.ToString("F2") @_lastStepResult.Unit</MudText>
+                    }
+                    <MudText Typo="Typo.body2">Duration: @_lastStepResult.DurationMs ms</MudText>
+                </MudAlert>
+            </MudPaper>
+        }
+
+        <MudPaper Class="pa-4 mt-4" Elevation="2" Style="border-radius: 12px;">
+            <MudText Typo="Typo.h6" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Timeline" Class="mr-2" /> Telemetry History
+            </MudText>
+            @if (_telemetryHistory.Count > 1)
+            {
+                <MudChart ChartType="ChartType.Line" ChartSeries="@_telemetrySeries" XAxisLabels="@_telemetryLabels"
+                          Width="100%" Height="250px" ChartOptions="new ChartOptions { YAxisTicks = 5 }" />
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                    Connect a device to start collecting telemetry data.
+                </MudAlert>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private string _serialNumber = "ERC-2024001";
+    private string _selectedStep = "Initialize";
+    private bool _isConnected;
+    private bool _isConnecting;
+    private bool _isRunningStep;
+    private TelemetryData? _telemetry;
+    private TestStepResult? _lastStepResult;
+    private System.Threading.Timer? _telemetryTimer;
+
+    private readonly List<TelemetryData> _telemetryHistory = new();
+    private List<ChartSeries> _telemetrySeries = new();
+    private string[] _telemetryLabels = [];
+
+    private static readonly string[] _stepNames =
+        ["Initialize", "RF Calibration", "Power Validation", "Temperature Test", "Firmware Verification", "Network Connectivity"];
+
+    private async Task Connect()
+    {
+        _isConnecting = true;
+        StateHasChanged();
+
+        var result = await DeviceService.ConnectAsync(_serialNumber);
+        _isConnected = result;
+        _isConnecting = false;
+
+        if (result)
+        {
+            Snackbar.Add($"Connected to {_serialNumber}", Severity.Success);
+            StartTelemetryPolling();
+        }
+        else
+        {
+            Snackbar.Add("Connection failed - device not responding", Severity.Error);
+        }
+    }
+
+    private async Task Disconnect()
+    {
+        StopTelemetryPolling();
+        await DeviceService.DisconnectAsync();
+        _isConnected = false;
+        _telemetry = null;
+        _telemetryHistory.Clear();
+        Snackbar.Add("Device disconnected", Severity.Info);
+    }
+
+    private async Task RunStep()
+    {
+        _isRunningStep = true;
+        StateHasChanged();
+
+        _lastStepResult = await DeviceService.RunStepAsync(_selectedStep);
+        _isRunningStep = false;
+
+        Snackbar.Add(
+            $"{_lastStepResult.StepName}: {(_lastStepResult.Passed ? "PASSED" : "FAILED")}",
+            _lastStepResult.Passed ? Severity.Success : Severity.Error
+        );
+    }
+
+    private void StartTelemetryPolling()
+    {
+        _telemetryTimer = new System.Threading.Timer(async _ =>
+        {
+            if (!_isConnected) return;
+            try
+            {
+                _telemetry = await DeviceService.ReadTelemetryAsync();
+                _telemetryHistory.Add(_telemetry);
+                if (_telemetryHistory.Count > 20) _telemetryHistory.RemoveAt(0);
+                UpdateTelemetryChart();
+                await InvokeAsync(StateHasChanged);
+            }
+            catch { }
+        }, null, 0, 2000);
+    }
+
+    private void StopTelemetryPolling()
+    {
+        _telemetryTimer?.Dispose();
+        _telemetryTimer = null;
+    }
+
+    private void UpdateTelemetryChart()
+    {
+        _telemetryLabels = _telemetryHistory.Select(t => t.Timestamp.ToString("ss")).ToArray();
+        _telemetrySeries = new List<ChartSeries>
+        {
+            new() { Name = "Temp (°C)", Data = _telemetryHistory.Select(t => t.Temperature).ToArray() },
+            new() { Name = "Voltage (V×10)", Data = _telemetryHistory.Select(t => t.Voltage * 10).ToArray() }
+        };
+    }
+
+    private double GetTempPercent() => _telemetry == null ? 0 : Math.Clamp(_telemetry.Temperature / 100 * 100, 0, 100);
+    private double GetSignalPercent() => _telemetry == null ? 0 : Math.Clamp((_telemetry.SignalStrength + 100) / 50 * 100, 0, 100);
+    private double GetVoltagePercent() => _telemetry == null ? 0 : Math.Clamp(_telemetry.Voltage / 5 * 100, 0, 100);
+
+    private Color GetTempColor() => _telemetry?.Temperature switch
+    {
+        > 80 => Color.Error,
+        > 65 => Color.Warning,
+        _ => Color.Success
+    };
+
+    public void Dispose() => StopTelemetryPolling();
+}

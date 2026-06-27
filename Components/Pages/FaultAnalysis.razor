@@ -1,0 +1,224 @@
+@page "/analysis"
+@inject IFaultAnalysisService FaultService
+
+<PageTitle>Fault Analysis - Ericsson Test Hub</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight: 600;">Fault Analysis</MudText>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudGrid>
+        @if (_summary != null)
+        {
+            @foreach (var item in _summary)
+            {
+                <MudItem xs="12" sm="6" md="4" lg="2">
+                    <MudPaper Class="pa-3 stat-card" Elevation="2">
+                        <MudStack AlignItems="AlignItems.Start" Spacing="1">
+                            <MudChip T="string" Size="Size.Small" Color="@GetSeverityColor(item.MaxSeverity)" Variant="Variant.Filled">
+                                @item.MaxSeverity
+                            </MudChip>
+                            <MudText Typo="Typo.h5" Style="font-weight: 700;">@item.Count</MudText>
+                            <MudText Typo="Typo.body2" Style="font-weight: 600;">@item.FailureType</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Style="line-height: 1.3;">@item.MostCommonCause</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            }
+        }
+    </MudGrid>
+
+    <MudPaper Class="pa-4 mt-4" Elevation="2" Style="border-radius: 12px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudText Typo="Typo.h6">
+                <MudIcon Icon="@Icons.Material.Filled.FilterList" Class="mr-2" /> Fault Records
+            </MudText>
+            <MudStack Row="true" Spacing="2">
+                <MudSelect @bind-Value="_filterSeverity" Label="Severity" Variant="Variant.Outlined" Dense="true"
+                           Style="min-width: 130px;" Clearable="true">
+                    <MudSelectItem Value="@("Critical")">Critical</MudSelectItem>
+                    <MudSelectItem Value="@("High")">High</MudSelectItem>
+                    <MudSelectItem Value="@("Medium")">Medium</MudSelectItem>
+                    <MudSelectItem Value="@("Low")">Low</MudSelectItem>
+                </MudSelect>
+                <MudSelect @bind-Value="_filterType" Label="Failure Type" Variant="Variant.Outlined" Dense="true"
+                           Style="min-width: 150px;" Clearable="true">
+                    <MudSelectItem Value="@("Temperature")">Temperature</MudSelectItem>
+                    <MudSelectItem Value="@("RF Signal")">RF Signal</MudSelectItem>
+                    <MudSelectItem Value="@("Power Supply")">Power Supply</MudSelectItem>
+                    <MudSelectItem Value="@("Firmware")">Firmware</MudSelectItem>
+                    <MudSelectItem Value="@("Network")">Network</MudSelectItem>
+                </MudSelect>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyFilters"
+                           StartIcon="@Icons.Material.Filled.Search">
+                    Filter
+                </MudButton>
+            </MudStack>
+        </MudStack>
+
+        <MudTable Items="_faults" Hover="true" Dense="true" Striped="true" Breakpoint="Breakpoint.Sm"
+                  RowsPerPage="10" Loading="_loading">
+            <HeaderContent>
+                <MudTh>Severity</MudTh>
+                <MudTh>Failure Type</MudTh>
+                <MudTh>Step</MudTh>
+                <MudTh Class="d-none d-md-table-cell">Root Cause</MudTh>
+                <MudTh Class="d-none d-sm-table-cell">Device</MudTh>
+                <MudTh Class="d-none d-lg-table-cell">Description</MudTh>
+                <MudTh>Date</MudTh>
+                <MudTh Class="d-none d-md-table-cell">Resolution</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Severity">
+                    <MudChip T="string" Size="Size.Small" Color="@GetSeverityColor(context.Severity)" Variant="Variant.Filled">
+                        @context.Severity
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Type">@context.FailureType</MudTd>
+                <MudTd DataLabel="Step">@context.StepName</MudTd>
+                <MudTd DataLabel="Root Cause" Class="d-none d-md-table-cell">
+                    <MudText Typo="Typo.body2" Style="max-width: 250px;">@context.RootCause</MudText>
+                </MudTd>
+                <MudTd DataLabel="Device" Class="d-none d-sm-table-cell">@context.TestSession?.Device?.SerialNumber</MudTd>
+                <MudTd DataLabel="Description" Class="d-none d-lg-table-cell">
+                    <MudText Typo="Typo.body2" Style="max-width: 200px;">@context.Description</MudText>
+                </MudTd>
+                <MudTd DataLabel="Date">@context.OccurredAt.ToString("MMM dd, HH:mm")</MudTd>
+                <MudTd DataLabel="Resolution" Class="d-none d-md-table-cell">
+                    @if (context.Resolution != null)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined">Resolved</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">Open</MudChip>
+                    }
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager />
+            </PagerContent>
+        </MudTable>
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mt-4" Elevation="2" Style="border-radius: 12px;">
+        <MudText Typo="Typo.h6" Class="mb-3">
+            <MudIcon Icon="@Icons.Material.Filled.Analytics" Class="mr-2" /> Failed Sessions Detail
+        </MudText>
+        <MudExpansionPanels MultiExpansion="true">
+            @foreach (var session in _failedSessions)
+            {
+                <MudExpansionPanel>
+                    <TitleContent>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" />
+                            <MudText><b>Session #@session.Id</b> — @session.Device?.SerialNumber (@session.Device?.ProductType)</MudText>
+                            <MudSpacer />
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@session.StartTime.ToString("MMM dd, HH:mm")</MudText>
+                        </MudStack>
+                    </TitleContent>
+                    <ChildContent>
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">Test Steps:</MudText>
+                        @foreach (var step in session.Steps)
+                        {
+                            <div class="step-indicator @GetStepBackground(step.Status)">
+                                <MudIcon Icon="@GetStepIcon(step.Status)" Color="@GetStepColor(step.Status)" Size="Size.Small" />
+                                <MudText Typo="Typo.body2" Style="flex: 1;">@step.Name</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="@GetStepColor(step.Status)">@step.Status</MudChip>
+                            </div>
+                            @if (!string.IsNullOrEmpty(step.ErrorMessage))
+                            {
+                                <MudAlert Severity="Severity.Error" Dense="true" Class="ml-8 mb-2" Variant="Variant.Outlined">
+                                    @step.ErrorMessage
+                                </MudAlert>
+                            }
+                        }
+                        @if (session.Faults.Any())
+                        {
+                            <MudText Typo="Typo.subtitle2" Class="mt-3 mb-2">Fault Records:</MudText>
+                            @foreach (var fault in session.Faults)
+                            {
+                                <MudAlert Severity="@GetFaultSeverity(fault.Severity)" Dense="true" Class="mb-2">
+                                    <b>@fault.FailureType</b>: @fault.RootCause
+                                </MudAlert>
+                            }
+                        }
+                    </ChildContent>
+                </MudExpansionPanel>
+            }
+        </MudExpansionPanels>
+        @if (!_failedSessions.Any())
+        {
+            <MudText Color="Color.Secondary">No failed sessions found.</MudText>
+        }
+    </MudPaper>
+}
+
+@code {
+    private bool _loading = true;
+    private string? _filterSeverity;
+    private string? _filterType;
+    private List<FaultRecord> _faults = new();
+    private List<FaultSummary>? _summary;
+    private List<TestSession> _failedSessions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _faults = await FaultService.GetAllFaultsAsync();
+        _summary = await FaultService.GetFaultSummaryAsync();
+        _failedSessions = await FaultService.GetFailedSessionsAsync();
+        _loading = false;
+    }
+
+    private async Task ApplyFilters()
+    {
+        _loading = true;
+        _faults = await FaultService.GetFilteredFaultsAsync(_filterSeverity, _filterType);
+        _loading = false;
+    }
+
+    private static Color GetSeverityColor(string severity) => severity switch
+    {
+        "Critical" => Color.Error,
+        "High" => Color.Warning,
+        "Medium" => Color.Info,
+        "Low" => Color.Success,
+        _ => Color.Default
+    };
+
+    private static Severity GetFaultSeverity(string severity) => severity switch
+    {
+        "Critical" => Severity.Error,
+        "High" => Severity.Warning,
+        "Medium" => Severity.Info,
+        _ => Severity.Normal
+    };
+
+    private static string GetStepIcon(string status) => status switch
+    {
+        "Passed" => Icons.Material.Filled.CheckCircle,
+        "Failed" => Icons.Material.Filled.Cancel,
+        "Running" => Icons.Material.Filled.PlayCircle,
+        "Skipped" => Icons.Material.Filled.SkipNext,
+        _ => Icons.Material.Filled.RadioButtonUnchecked
+    };
+
+    private static Color GetStepColor(string status) => status switch
+    {
+        "Passed" => Color.Success,
+        "Failed" => Color.Error,
+        "Running" => Color.Info,
+        _ => Color.Default
+    };
+
+    private static string GetStepBackground(string status) => status switch
+    {
+        "Passed" => "background: rgba(76, 175, 80, 0.08);",
+        "Failed" => "background: rgba(244, 67, 54, 0.08);",
+        _ => ""
+    };
+}

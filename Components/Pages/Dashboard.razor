@@ -1,0 +1,161 @@
+@page "/"
+@inject IDashboardService DashboardService
+
+<PageTitle>Dashboard - Ericsson Test Hub</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight: 600;">Production Dashboard</MudText>
+
+@if (_stats == null)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="6" sm="6" md="3">
+            <MudPaper Class="pa-4 stat-card" Elevation="2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <div>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Running Tests</MudText>
+                        <MudText Typo="Typo.h4" Style="font-weight: 700;">@_stats.RunningTests</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.PlayCircle" Color="Color.Info" Size="Size.Large" Class="pulse-animation" />
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="6" md="3">
+            <MudPaper Class="pa-4 stat-card" Elevation="2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <div>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Passed Units</MudText>
+                        <MudText Typo="Typo.h4" Style="font-weight: 700; color: #4caf50;">@_stats.PassedUnits</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" />
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="6" md="3">
+            <MudPaper Class="pa-4 stat-card" Elevation="2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <div>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Failed Units</MudText>
+                        <MudText Typo="Typo.h4" Style="font-weight: 700; color: #f44336;">@_stats.FailedUnits</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Size="Size.Large" />
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="6" md="3">
+            <MudPaper Class="pa-4 stat-card" Elevation="2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <div>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Active Stations</MudText>
+                        <MudText Typo="Typo.h4" Style="font-weight: 700;">@_stats.ActiveStations</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.Router" Color="Color.Warning" Size="Size.Large" />
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid Class="mt-4">
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="2" Style="border-radius: 12px;">
+                <MudText Typo="Typo.h6" Class="mb-3">Test Throughput (Last 8 Hours)</MudText>
+                @if (_throughput != null)
+                {
+                    <MudChart ChartType="ChartType.Bar" ChartSeries="@_throughputSeries" XAxisLabels="@_throughputLabels"
+                              Width="100%" Height="300px" ChartOptions="_chartOptions" />
+                }
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="2" Style="border-radius: 12px;">
+                <MudText Typo="Typo.h6" Class="mb-3">Pass / Fail Rate (This Week)</MudText>
+                @if (_passFail != null)
+                {
+                    <MudChart ChartType="ChartType.StackedBar" ChartSeries="@_passFailSeries" XAxisLabels="@_passFailLabels"
+                              Width="100%" Height="300px" ChartOptions="_chartOptions" />
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Class="pa-4 mt-4" Elevation="2" Style="border-radius: 12px;">
+        <MudText Typo="Typo.h6" Class="mb-3">Recent Test Sessions</MudText>
+        <MudTable Items="_recentSessions" Hover="true" Dense="true" Striped="true" Breakpoint="Breakpoint.Sm"
+                  Loading="_recentSessions == null" RowClass="cursor-pointer">
+            <HeaderContent>
+                <MudTh>Session</MudTh>
+                <MudTh>Device</MudTh>
+                <MudTh Class="d-none d-md-table-cell">Product</MudTh>
+                <MudTh>Profile</MudTh>
+                <MudTh Class="d-none d-sm-table-cell">Station</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh Class="d-none d-md-table-cell">Started</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Session">#@context.Id</MudTd>
+                <MudTd DataLabel="Device">@context.Device?.SerialNumber</MudTd>
+                <MudTd DataLabel="Product" Class="d-none d-md-table-cell">@context.Device?.ProductType</MudTd>
+                <MudTd DataLabel="Profile">@context.TestProfile</MudTd>
+                <MudTd DataLabel="Station" Class="d-none d-sm-table-cell">@context.Station?.Name</MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)" Variant="Variant.Filled">
+                        @context.Status
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Started" Class="d-none d-md-table-cell">@context.StartTime.ToString("MMM dd, HH:mm")</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+}
+
+@code {
+    private DashboardStats? _stats;
+    private List<ThroughputDataPoint>? _throughput;
+    private List<PassFailDataPoint>? _passFail;
+    private List<TestSession>? _recentSessions;
+
+    private List<ChartSeries> _throughputSeries = new();
+    private string[] _throughputLabels = [];
+    private List<ChartSeries> _passFailSeries = new();
+    private string[] _passFailLabels = [];
+
+    private readonly ChartOptions _chartOptions = new()
+    {
+        YAxisTicks = 5,
+        MaxNumYAxisTicks = 10
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _stats = await DashboardService.GetStatsAsync();
+        _throughput = await DashboardService.GetThroughputDataAsync();
+        _passFail = await DashboardService.GetPassFailDataAsync();
+        _recentSessions = await DashboardService.GetRecentSessionsAsync();
+
+        _throughputLabels = _throughput.Select(t => t.Hour).ToArray();
+        _throughputSeries = new List<ChartSeries>
+        {
+            new() { Name = "Tests Completed", Data = _throughput.Select(t => (double)t.Count).ToArray() }
+        };
+
+        _passFailLabels = _passFail.Select(p => p.Label).ToArray();
+        _passFailSeries = new List<ChartSeries>
+        {
+            new() { Name = "Passed", Data = _passFail.Select(p => (double)p.Passed).ToArray() },
+            new() { Name = "Failed", Data = _passFail.Select(p => (double)p.Failed).ToArray() }
+        };
+    }
+
+    private static Color GetStatusColor(string status) => status switch
+    {
+        "Passed" => Color.Success,
+        "Failed" => Color.Error,
+        "Running" => Color.Info,
+        "Pending" => Color.Default,
+        "Aborted" => Color.Warning,
+        _ => Color.Default
+    };
+}

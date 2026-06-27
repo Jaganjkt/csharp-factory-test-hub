@@ -1,0 +1,254 @@
+@page "/monitor"
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject ITestSessionService SessionService
+@implements IAsyncDisposable
+
+<PageTitle>Monitoring - Ericsson Test Hub</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight: 600;">Real-Time Monitoring</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="8">
+        <MudPaper Class="pa-4" Elevation="2" Style="border-radius: 12px;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudText Typo="Typo.h6">
+                    <MudIcon Icon="@Icons.Material.Filled.Wifi" Class="mr-2" Color="@(_isConnected ? Color.Success : Color.Error)" />
+                    Event Stream
+                </MudText>
+                <MudChip T="string" Color="@(_isConnected ? Color.Success : Color.Error)" Size="Size.Small" Variant="Variant.Filled">
+                    @(_isConnected ? "LIVE" : "DISCONNECTED")
+                </MudChip>
+            </MudStack>
+
+            <div class="scroll-container" style="max-height: 500px;">
+                @if (!_events.Any())
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                        Waiting for test events... Events will appear here in real-time.
+                    </MudAlert>
+                }
+                @foreach (var evt in _events)
+                {
+                    <div class="event-item" style="border-left-color: @GetEventColor(evt.EventType);">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@GetEventIcon(evt.EventType)" Style="@($"color: {GetEventColor(evt.EventType)}")" Size="Size.Small" />
+                            <MudText Typo="Typo.subtitle2">@evt.EventType</MudText>
+                            <MudSpacer />
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@evt.Timestamp.ToString("HH:mm:ss")</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.body2" Class="mt-1">@evt.Message</MudText>
+                        @if (evt.StationName != null)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default" Class="mt-1">
+                                @evt.StationName
+                            </MudChip>
+                        }
+                    </div>
+                }
+            </div>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-4" Elevation="2" Style="border-radius: 12px;">
+            <MudText Typo="Typo.h6" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Router" Class="mr-2" /> Active Stations
+            </MudText>
+            @foreach (var station in _stations)
+            {
+                <MudCard Class="mb-2" Elevation="0" Outlined="true">
+                    <MudCardContent Class="pa-3">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <div>
+                                <MudText Typo="Typo.subtitle2">@station.Name</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@station.CurrentTest</MudText>
+                            </div>
+                            <MudChip T="string" Size="Size.Small" Color="@GetStationStatusColor(station.Status)" Variant="Variant.Filled">
+                                @station.Status
+                            </MudChip>
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+            }
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mt-4" Elevation="2" Style="border-radius: 12px;">
+            <MudText Typo="Typo.h6" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Speed" Class="mr-2" /> Running Executions
+            </MudText>
+            @foreach (var exec in _runningExecutions)
+            {
+                <MudCard Class="mb-2" Elevation="0" Outlined="true">
+                    <MudCardContent Class="pa-3">
+                        <MudText Typo="Typo.subtitle2">@exec.DeviceSerial</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@exec.Profile</MudText>
+                        <MudProgressLinear Color="Color.Info" Value="@exec.Progress" Rounded="true" Size="Size.Small" Class="mt-2" />
+                        <MudText Typo="Typo.caption">Step: @exec.CurrentStep</MudText>
+                    </MudCardContent>
+                </MudCard>
+            }
+            @if (!_runningExecutions.Any())
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">No active executions</MudText>
+            }
+        </MudPaper>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-4"
+                   StartIcon="@Icons.Material.Filled.Bolt" OnClick="SimulateEvents">
+            Simulate Events
+        </MudButton>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private Microsoft.AspNetCore.SignalR.Client.HubConnection? _hubConnection;
+    private bool _isConnected;
+    private System.Threading.Timer? _simulationTimer;
+
+    private readonly List<TestEvent> _events = new();
+    private readonly List<StationInfo> _stations = new();
+    private readonly List<RunningExecution> _runningExecutions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _stations.AddRange(new[]
+        {
+            new StationInfo("Station-01", "Active", "RBS 6601 - Full Production Test"),
+            new StationInfo("Station-02", "Active", "Radio 4478 - RF Calibration"),
+            new StationInfo("Station-03", "Active", "Baseband 6630 - Thermal Test"),
+            new StationInfo("Station-04", "Idle", "—"),
+            new StationInfo("Station-05", "Maintenance", "Scheduled calibration")
+        });
+
+        _runningExecutions.AddRange(new[]
+        {
+            new RunningExecution("ERC-2024001", "Full Production Test", "RF Calibration", 33),
+            new RunningExecution("ERC-2024005", "RF Calibration Only", "Initialize", 15)
+        });
+
+        try
+        {
+            _hubConnection = new Microsoft.AspNetCore.SignalR.Client.HubConnectionBuilder()
+                .WithUrl(Navigation.ToAbsoluteUri("/testhub"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hubConnection.On<string, string, string?, DateTime>("ReceiveTestEvent", (eventType, message, stationName, timestamp) =>
+            {
+                _events.Insert(0, new TestEvent(eventType, message, stationName, timestamp));
+                if (_events.Count > 50) _events.RemoveAt(_events.Count - 1);
+                InvokeAsync(StateHasChanged);
+            });
+
+            _hubConnection.On<string, string, string?, DateTime>("ReceiveStationUpdate", (stationName, status, currentTest, _) =>
+            {
+                var station = _stations.FirstOrDefault(s => s.Name == stationName);
+                if (station != null)
+                {
+                    station.Status = status;
+                    station.CurrentTest = currentTest ?? "—";
+                    InvokeAsync(StateHasChanged);
+                }
+            });
+
+            await _hubConnection.StartAsync();
+            _isConnected = true;
+        }
+        catch
+        {
+            _isConnected = false;
+            _events.Insert(0, new TestEvent("System", "SignalR connection failed - using simulation mode", null, DateTime.Now));
+        }
+    }
+
+    private async Task SimulateEvents()
+    {
+        var rng = new Random();
+        var eventTemplates = new[]
+        {
+            ("Test Started", "Device ERC-2024{0:D3} started Full Production Test", "Station-0{1}"),
+            ("Step Completed", "RF Calibration passed — Signal: -{0} dBm", "Station-0{1}"),
+            ("Step Completed", "Power Validation passed — Voltage: 3.{0}V", "Station-0{1}"),
+            ("Test Completed", "Device ERC-2024{0:D3} completed all tests — PASSED", "Station-0{1}"),
+            ("Test Failed", "Temperature exceeded threshold: {0}°C (max: 85°C)", "Station-0{1}"),
+            ("Step Completed", "Firmware verification checksum matched", "Station-0{1}")
+        };
+
+        for (int i = 0; i < 6; i++)
+        {
+            var (evtType, msgTemplate, stationTemplate) = eventTemplates[i];
+            var msg = string.Format(msgTemplate, rng.Next(55, 95), rng.Next(1, 4));
+            var station = string.Format(stationTemplate, rng.Next(1, 4));
+
+            if (_hubConnection?.State == Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Connected)
+            {
+                await _hubConnection.SendAsync("SendTestEvent", evtType, msg, station);
+            }
+            else
+            {
+                _events.Insert(0, new TestEvent(evtType, msg, station, DateTime.Now));
+            }
+
+            StateHasChanged();
+            await Task.Delay(600);
+        }
+
+        foreach (var exec in _runningExecutions)
+        {
+            exec.Progress = Math.Min(100, exec.Progress + rng.Next(10, 30));
+            exec.CurrentStep = exec.Progress > 80 ? "Network Connectivity" : exec.Progress > 50 ? "Temperature Test" : "Power Validation";
+        }
+
+        StateHasChanged();
+    }
+
+    private static string GetEventColor(string eventType) => eventType switch
+    {
+        "Test Started" => "#2196f3",
+        "Step Completed" => "#4caf50",
+        "Test Completed" => "#4caf50",
+        "Test Failed" => "#f44336",
+        "System" => "#9e9e9e",
+        _ => "#ff9800"
+    };
+
+    private static string GetEventIcon(string eventType) => eventType switch
+    {
+        "Test Started" => Icons.Material.Filled.PlayCircle,
+        "Step Completed" => Icons.Material.Filled.CheckCircle,
+        "Test Completed" => Icons.Material.Filled.TaskAlt,
+        "Test Failed" => Icons.Material.Filled.Error,
+        "System" => Icons.Material.Filled.Info,
+        _ => Icons.Material.Filled.Notifications
+    };
+
+    private static Color GetStationStatusColor(string status) => status switch
+    {
+        "Active" => Color.Success,
+        "Idle" => Color.Warning,
+        "Maintenance" => Color.Error,
+        _ => Color.Default
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        _simulationTimer?.Dispose();
+        if (_hubConnection != null) await _hubConnection.DisposeAsync();
+    }
+
+    private record TestEvent(string EventType, string Message, string? StationName, DateTime Timestamp);
+    private class StationInfo(string name, string status, string currentTest)
+    {
+        public string Name { get; set; } = name;
+        public string Status { get; set; } = status;
+        public string CurrentTest { get; set; } = currentTest;
+    }
+    private class RunningExecution(string deviceSerial, string profile, string currentStep, int progress)
+    {
+        public string DeviceSerial { get; set; } = deviceSerial;
+        public string Profile { get; set; } = profile;
+        public string CurrentStep { get; set; } = currentStep;
+        public int Progress { get; set; } = progress;
+    }
+}

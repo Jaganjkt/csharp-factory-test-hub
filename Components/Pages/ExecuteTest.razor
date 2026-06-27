@@ -1,0 +1,325 @@
+@page "/tests"
+@inject ITestDeviceService DeviceService
+@inject ITestSessionService SessionService
+@inject ISnackbar Snackbar
+
+<PageTitle>Execute Test - Ericsson Test Hub</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight: 600;">Execute Test</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="5">
+        <MudPaper Class="pa-4" Elevation="2" Style="border-radius: 12px;">
+            <MudText Typo="Typo.h6" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Settings" Class="mr-2" /> Test Configuration
+            </MudText>
+
+            <MudTextField @bind-Value="_serialNumber" Label="Serial Number" Variant="Variant.Outlined"
+                          Placeholder="ERC-2024000" Disabled="_isRunning" Class="mb-3" />
+
+            <MudSelect @bind-Value="_productType" Label="Product Type" Variant="Variant.Outlined"
+                       Disabled="_isRunning" Class="mb-3">
+                <MudSelectItem Value="@("RBS 6601")">RBS 6601</MudSelectItem>
+                <MudSelectItem Value="@("Radio 4478")">Radio 4478</MudSelectItem>
+                <MudSelectItem Value="@("Baseband 6630")">Baseband 6630</MudSelectItem>
+                <MudSelectItem Value="@("Router 6274")">Router 6274</MudSelectItem>
+                <MudSelectItem Value="@("Antenna AIR 3246")">Antenna AIR 3246</MudSelectItem>
+            </MudSelect>
+
+            <MudTextField @bind-Value="_firmwareVersion" Label="Firmware Version" Variant="Variant.Outlined"
+                          Placeholder="v3.2.1" Disabled="_isRunning" Class="mb-3" />
+
+            <MudSelect @bind-Value="_testProfile" Label="Test Profile" Variant="Variant.Outlined"
+                       Disabled="_isRunning" Class="mb-3">
+                <MudSelectItem Value="@("Full Production Test")">Full Production Test</MudSelectItem>
+                <MudSelectItem Value="@("RF Calibration Only")">RF Calibration Only</MudSelectItem>
+                <MudSelectItem Value="@("Thermal Stress Test")">Thermal Stress Test</MudSelectItem>
+                <MudSelectItem Value="@("Quick Validation")">Quick Validation</MudSelectItem>
+                <MudSelectItem Value="@("Firmware Verification")">Firmware Verification</MudSelectItem>
+            </MudSelect>
+
+            <MudStack Row="true" Spacing="2" Class="mt-4">
+                <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.PlayArrow"
+                           OnClick="StartTest" Disabled="_isRunning || !IsFormValid()" FullWidth="true">
+                    Start Test
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Filled.Pause"
+                           OnClick="PauseTest" Disabled="!_isRunning || _isPaused">
+                    Pause
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Info" StartIcon="@Icons.Material.Filled.Refresh"
+                           OnClick="RetryTest" Disabled="_isRunning || _logs.Count == 0">
+                    Retry
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Stop"
+                           OnClick="StopTest" Disabled="!_isRunning">
+                    Stop
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="7">
+        <MudPaper Class="pa-4" Elevation="2" Style="border-radius: 12px;">
+            <MudText Typo="Typo.h6" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.LinearScale" Class="mr-2" /> Execution Progress
+            </MudText>
+
+            @if (_isRunning || _steps.Any())
+            {
+                <MudProgressLinear Color="@(_testFailed ? Color.Error : Color.Primary)"
+                                   Value="_overallProgress" Class="mb-4" Rounded="true" Size="Size.Large">
+                    <MudText Typo="Typo.body2">
+                        <b>@((int)_overallProgress)%</b>
+                    </MudText>
+                </MudProgressLinear>
+
+                @foreach (var step in _steps)
+                {
+                    <div class="step-indicator @GetStepBackground(step.Status)">
+                        <MudIcon Icon="@GetStepIcon(step.Status)" Color="@GetStepColor(step.Status)" Size="Size.Small" />
+                        <MudText Typo="Typo.body2" Style="flex: 1; font-weight: 500;">@step.Name</MudText>
+                        @if (step.Status == "Running")
+                        {
+                            <MudProgressCircular Color="Color.Info" Size="Size.Small" Indeterminate="true" />
+                        }
+                        else if (step.MeasuredValue.HasValue)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@GetStepColor(step.Status)">
+                                @step.MeasuredValue.Value.ToString("F1") @step.Unit
+                            </MudChip>
+                        }
+                        <MudChip T="string" Size="Size.Small" Color="@GetStepColor(step.Status)" Variant="Variant.Filled">
+                            @step.Status
+                        </MudChip>
+                    </div>
+                }
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-2">
+                    Configure test parameters and click Start Test to begin execution.
+                </MudAlert>
+            }
+
+            @if (_finalResult != null)
+            {
+                <MudAlert Severity="@(_testFailed ? Severity.Error : Severity.Success)" Variant="Variant.Filled" Class="mt-4">
+                    <MudText Typo="Typo.h6">@_finalResult</MudText>
+                </MudAlert>
+            }
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mt-4" Elevation="2" Style="border-radius: 12px;">
+            <MudText Typo="Typo.h6" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Terminal" Class="mr-2" /> Live Logs
+            </MudText>
+            <div class="scroll-container" style="max-height: 300px; background: var(--mud-palette-background); border-radius: 8px; padding: 12px;">
+                @if (_logs.Any())
+                {
+                    @foreach (var log in _logs)
+                    {
+                        <div class="log-entry @GetLogClass(log.Level)">
+                            <span style="opacity: 0.6;">@log.Timestamp.ToString("HH:mm:ss.fff")</span>
+                            [@log.Level] @log.Message
+                        </div>
+                    }
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Waiting for test execution...</MudText>
+                }
+            </div>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private string _serialNumber = "";
+    private string _productType = "RBS 6601";
+    private string _firmwareVersion = "v3.2.1";
+    private string _testProfile = "Full Production Test";
+    private bool _isRunning;
+    private bool _isPaused;
+    private bool _testFailed;
+    private double _overallProgress;
+    private string? _finalResult;
+    private CancellationTokenSource? _cts;
+
+    private readonly List<StepState> _steps = new();
+    private readonly List<LogEntry> _logs = new();
+
+    private static readonly string[] StepNames =
+        ["Initialize", "RF Calibration", "Power Validation", "Temperature Test", "Firmware Verification", "Network Connectivity"];
+
+    private bool IsFormValid() =>
+        !string.IsNullOrWhiteSpace(_serialNumber) && !string.IsNullOrWhiteSpace(_productType);
+
+    private async Task StartTest()
+    {
+        _steps.Clear();
+        _logs.Clear();
+        _finalResult = null;
+        _testFailed = false;
+        _overallProgress = 0;
+        _isRunning = true;
+        _isPaused = false;
+        _cts = new CancellationTokenSource();
+
+        foreach (var name in StepNames)
+            _steps.Add(new StepState { Name = name, Status = "Pending" });
+
+        StateHasChanged();
+        AddLog("INFO", $"Connecting to device {_serialNumber}...");
+
+        var connected = await DeviceService.ConnectAsync(_serialNumber);
+        if (!connected)
+        {
+            AddLog("ERROR", "Failed to connect to device");
+            _isRunning = false;
+            _finalResult = "CONNECTION FAILED";
+            _testFailed = true;
+            Snackbar.Add("Device connection failed", Severity.Error);
+            return;
+        }
+
+        AddLog("PASS", $"Device {_serialNumber} connected successfully");
+        AddLog("INFO", $"Starting test profile: {_testProfile}");
+
+        try
+        {
+            for (int i = 0; i < _steps.Count; i++)
+            {
+                _cts.Token.ThrowIfCancellationRequested();
+
+                while (_isPaused)
+                {
+                    await Task.Delay(200, _cts.Token);
+                }
+
+                _steps[i].Status = "Running";
+                _overallProgress = (double)i / _steps.Count * 100;
+                StateHasChanged();
+
+                AddLog("INFO", $"Executing: {_steps[i].Name}...");
+                var result = await DeviceService.RunStepAsync(_steps[i].Name);
+
+                _steps[i].MeasuredValue = result.MeasuredValue;
+                _steps[i].Unit = result.Unit;
+
+                if (result.Passed)
+                {
+                    _steps[i].Status = "Passed";
+                    AddLog("PASS", $"[PASS] {result.StepName}: {result.Message}");
+                }
+                else
+                {
+                    _steps[i].Status = "Failed";
+                    _testFailed = true;
+                    AddLog("FAIL", $"[FAIL] {result.StepName}: {result.Message}");
+
+                    for (int j = i + 1; j < _steps.Count; j++)
+                        _steps[j].Status = "Skipped";
+
+                    break;
+                }
+
+                StateHasChanged();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            AddLog("WARN", "Test execution stopped by operator");
+            _finalResult = "TEST ABORTED";
+            _testFailed = true;
+        }
+
+        _overallProgress = 100;
+        await DeviceService.DisconnectAsync();
+        AddLog("INFO", "Device disconnected");
+
+        if (_finalResult == null)
+        {
+            _finalResult = _testFailed ? "TEST FAILED" : "ALL TESTS PASSED";
+        }
+
+        _isRunning = false;
+        Snackbar.Add(_testFailed ? "Test Failed" : "Test Passed", _testFailed ? Severity.Error : Severity.Success);
+        StateHasChanged();
+    }
+
+    private void PauseTest()
+    {
+        _isPaused = true;
+        AddLog("WARN", "Test execution paused");
+        Snackbar.Add("Test paused", Severity.Warning);
+    }
+
+    private async Task RetryTest()
+    {
+        await StartTest();
+    }
+
+    private void StopTest()
+    {
+        _cts?.Cancel();
+        _isRunning = false;
+        Snackbar.Add("Test stopped", Severity.Warning);
+    }
+
+    private void AddLog(string level, string message)
+    {
+        _logs.Add(new LogEntry { Timestamp = DateTime.Now, Level = level, Message = message });
+        StateHasChanged();
+    }
+
+    private static string GetStepIcon(string status) => status switch
+    {
+        "Passed" => Icons.Material.Filled.CheckCircle,
+        "Failed" => Icons.Material.Filled.Cancel,
+        "Running" => Icons.Material.Filled.PlayCircle,
+        "Skipped" => Icons.Material.Filled.SkipNext,
+        _ => Icons.Material.Filled.RadioButtonUnchecked
+    };
+
+    private static Color GetStepColor(string status) => status switch
+    {
+        "Passed" => Color.Success,
+        "Failed" => Color.Error,
+        "Running" => Color.Info,
+        "Skipped" => Color.Default,
+        _ => Color.Default
+    };
+
+    private static string GetStepBackground(string status) => status switch
+    {
+        "Passed" => "background: rgba(76, 175, 80, 0.08);",
+        "Failed" => "background: rgba(244, 67, 54, 0.08);",
+        "Running" => "background: rgba(33, 150, 243, 0.08);",
+        _ => ""
+    };
+
+    private static string GetLogClass(string level) => level switch
+    {
+        "PASS" => "log-pass",
+        "FAIL" => "log-fail",
+        "WARN" => "log-warn",
+        "ERROR" => "log-error",
+        _ => "log-info"
+    };
+
+    private class StepState
+    {
+        public string Name { get; set; } = "";
+        public string Status { get; set; } = "Pending";
+        public double? MeasuredValue { get; set; }
+        public string? Unit { get; set; }
+    }
+
+    private class LogEntry
+    {
+        public DateTime Timestamp { get; set; }
+        public string Level { get; set; } = "";
+        public string Message { get; set; } = "";
+    }
+}
